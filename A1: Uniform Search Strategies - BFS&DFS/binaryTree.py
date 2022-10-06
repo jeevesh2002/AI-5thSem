@@ -63,17 +63,16 @@ class Node:
             return
         if self.level > lev:
             return
-        else:
-            if self.data == goal:
-                print(self.data)
-                print("Found")
-                sys.exit()
-                return
-            print(self.data, end='->')
-            if self.left:
-                self.left.DLS(goal,lev)
-            if self.right:
-                self.right.DLS(goal,lev)
+        if self.data == goal:
+            print(self.data)
+            print("Found")
+            sys.exit()
+            return
+        print(self.data, end='->')
+        if self.left:
+            self.left.DLS(goal,lev)
+        if self.right:
+            self.right.DLS(goal,lev)
 
     def IDS(self,goal,level):
         l = 0

@@ -10,7 +10,6 @@ if r:
     console = Console()
     console
 
-
 color = input("Enter Color: ").lower()
 while color not in ["red", "green"]:
     color = input("Enter Color: ")
@@ -19,9 +18,9 @@ n = int(input("Enter Number of Nodes: "))
 
 v = []
 if color == "green":
-    v.extend(iter(range(2, 2*n+1, 2)))
+    v.extend(iter(range(2, 2 * n + 1, 2)))
 elif color == "red":
-    v.extend(iter(range(1, 2*n+1, 2)))
+    v.extend(iter(range(1, 2 * n + 1, 2)))
 
 nodes = [None if x is None else binaryTree.Node(x) for x in v]
 root = binaryTree.constructBinaryTree(nodes)
@@ -45,7 +44,6 @@ root.DFS()
 print("\n")
 
 x = int(input("Enter the Node number to display state: "))
-nodes[x-1].state()
+nodes[x - 1].state()
 
-
-nodes[1].DLS(46,int(input("Enter level")))
+nodes[1].DLS(46, int(input("Enter level")))

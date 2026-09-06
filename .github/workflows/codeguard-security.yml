@@ -24,11 +24,42 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: '1'
     steps:
       - name: Check out the change and comparison history
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
+        # Native checkout avoids auth cleanup traversing incomplete legacy gitlinks.
+        shell: bash
+        env:
+          CODEGUARD_GITHUB_TOKEN: ${{ github.token }}
+          CODEGUARD_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CODEGUARD_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid checkout commit" >&2; exit 2; }
+          # Credentials exist only in this step's environment, never in Git config.
+          # Gitlinks are checked out as entries; submodules are never initialized.
+          unset GIT_TRACE GIT_TRACE_PACKET GIT_TRACE_CURL GIT_CURL_VERBOSE
+          export GIT_TERMINAL_PROMPT=0
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="http.${GITHUB_SERVER_URL}/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CODEGUARD_GITHUB_TOKEN" | base64 | tr -d '\n')"
+          export GIT_CONFIG_KEY_1=credential.helper
+          export GIT_CONFIG_VALUE_1=''
+          export GIT_CONFIG_KEY_2=submodule.recurse
+          export GIT_CONFIG_VALUE_2=false
+          cleanup_auth() {
+            unset CODEGUARD_GITHUB_TOKEN GIT_CONFIG_COUNT
+            unset GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_CONFIG_KEY_1 GIT_CONFIG_VALUE_1
+            unset GIT_CONFIG_KEY_2 GIT_CONFIG_VALUE_2
+          }
+          trap cleanup_auth EXIT
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --prune --no-recurse-submodules origin \
+            '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
+          # Fork PR heads and older event SHAs may not be in the advertised branch refs.
+          if ! git cat-file -e "${CODEGUARD_HEAD_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --no-recurse-submodules origin "$CODEGUARD_HEAD_SHA"
+          fi
+          cleanup_auth
+          git -c submodule.recurse=false checkout --detach "$CODEGUARD_HEAD_SHA"
+          [[ "$(git rev-parse HEAD)" == "$CODEGUARD_HEAD_SHA" ]]
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
